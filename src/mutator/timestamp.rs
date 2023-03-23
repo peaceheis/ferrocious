@@ -1,8 +1,11 @@
 use crate::utils::DEFAULT_FPS;
 use std::cmp::Ordering;
 use std::cmp::Ordering::{Equal, Greater, Less};
+use std::fmt;
+use std::fmt::Formatter;
 
 #[derive(Eq)]
+#[derive(Debug)]
 pub struct TimeStamp {
     minute: u8,
     second: u8,
@@ -94,5 +97,11 @@ impl PartialOrd for TimeStamp {
 
     fn ge(&self, other: &Self) -> bool {
         self > other || self == other
+    }
+}
+
+impl fmt::Display for TimeStamp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Timestamp with minute {}, second {}, and frame {}", self.minute, self.second, self.frame)
     }
 }
