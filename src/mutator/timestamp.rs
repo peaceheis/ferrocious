@@ -1,38 +1,35 @@
-use crate::utils::DEFAULT_FPS;
+use crate::utils::defaults::DEFAULT_FPS;
 use std::cmp::Ordering;
 use std::cmp::Ordering::{Equal, Greater, Less};
 use std::fmt;
 use std::fmt::Formatter;
 
-#[derive(Eq)]
-#[derive(Debug)]
+#[derive(Eq, Debug)]
 pub struct TimeStamp {
-    minute: u8,
-    second: u8,
-    frame: u8,
+    pub minute: u8,
+    pub second: u8,
+    pub frame: u8,
 }
 
 impl TimeStamp {
+    pub fn new(minute: u8, second: u8, frame: u8) -> Self { TimeStamp{minute, second, frame} }
+
     pub fn increment(&mut self) {
         self.frame += 1;
 
-        if self.frame >= DEFAULT_FPS {
+        if self.frame > DEFAULT_FPS { //TODO: allow for context-based FPS
             self.frame = 0;
             self.second += 1;
         }
 
         if self.second > 59 {
             self.second = 0;
-            self.minute = 1;
+            self.minute += 1;
         }
     }
 
-    pub fn time_as_tuple(&self) -> (u8, u8, u8) {
-        (self.minute, self.second, self.frame)
-    }
-
-    pub fn time_as_int(&self) -> u32 {
-        (self.minute * 60 * DEFAULT_FPS + self.second * DEFAULT_FPS + self.frame).into()
+    pub fn time_as_array(&self) -> [u8;3] {
+        [self.minute, self.second, self.frame]
     }
 }
 
@@ -58,20 +55,11 @@ impl PartialOrd for TimeStamp {
     }
 
     fn lt(&self, other: &Self) -> bool {
-        if self.minute < other.minute {
-            return true;
-        } else if self.minute == other.minute {
-            if self.second < other.minute {
-                return true;
-            } else if self.second == other.minute {
-                if self.frame < other.frame {
-                    return true;
-                }
-                return false;
-            }
-            return false;
-        }
-        false
+        other.minute > self.minute ||
+            (other.minute == self.minute &&
+                (other.second > self.second ||
+                    (other.second == self.second &&
+                        other.frame > self.frame)))
     }
 
     fn le(&self, other: &Self) -> bool {
@@ -79,20 +67,11 @@ impl PartialOrd for TimeStamp {
     }
 
     fn gt(&self, other: &Self) -> bool {
-        if self.minute > other.minute {
-            return true;
-        } else if self.minute == other.minute {
-            if self.second > other.minute {
-                return true;
-            } else if self.second == other.minute {
-                if self.frame > other.frame {
-                    return true;
-                }
-                return false;
-            }
-            return false;
-        }
-        false
+        other.minute < self.minute ||
+            (other.minute == self.minute &&
+                (other.second < self.second ||
+                    (other.second == self.second &&
+                        other.frame < self.frame)))
     }
 
     fn ge(&self, other: &Self) -> bool {
@@ -102,6 +81,10 @@ impl PartialOrd for TimeStamp {
 
 impl fmt::Display for TimeStamp {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Timestamp with minute {}, second {}, and frame {}", self.minute, self.second, self.frame)
+        write!(
+            f,
+            "Timestamp with minute {}, second {}, and frame {}",
+            self.minute, self.second, self.frame
+        )
     }
 }

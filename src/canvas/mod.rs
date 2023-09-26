@@ -1,1 +1,3 @@
-pub mod canvas;
+pub trait Canvas {
+    fn construct(&self);
+}
