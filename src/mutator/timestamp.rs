@@ -12,7 +12,14 @@ pub struct TimeStamp {
 }
 
 impl TimeStamp {
-    pub fn new(minute: u8, second: u8, frame: u8) -> Self { TimeStamp{minute, second, frame} }
+    pub fn new(minute: Option<u8>, second: Option<u8>, frame: Option<u8>) -> Self {
+        TimeStamp {
+            minute: minute.unwrap_or(0),
+            second: second.unwrap_or(0),
+            frame: frame.unwrap_or(0)
+        }
+    }
+
 
     pub fn increment(&mut self) {
         self.frame += 1;

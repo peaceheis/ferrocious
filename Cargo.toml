@@ -7,4 +7,5 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ndarray = "0.15.0"
+ndarray = "0.15.6"
+subprocess = "0.2.9"
