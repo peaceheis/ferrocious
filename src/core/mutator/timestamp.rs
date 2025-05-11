@@ -1,10 +1,10 @@
-use crate::utils::defaults::DEFAULT_FPS;
+use crate::core::utils::defaults::DEFAULT_FPS;
 use std::cmp::Ordering;
 use std::cmp::Ordering::{Equal, Greater, Less};
 use std::fmt;
 use std::fmt::Formatter;
 
-#[derive(Eq, Debug)]
+#[derive(Eq, Debug, Default, Copy, Clone)]
 pub struct TimeStamp {
     pub minute: u8,
     pub second: u8,
@@ -12,13 +12,26 @@ pub struct TimeStamp {
 }
 
 impl TimeStamp {
-    pub fn new(minute: Option<u8>, second: Option<u8>, frame: Option<u8>) -> Self {
+    pub fn new(minute: u8, second: u8, frame: u8) -> Self {
+        TimeStamp {
+            minute,
+            second,
+            frame,
+        }
+    }
+
+    pub fn as_num_frames(&self, fps: u8) -> u32 {
+        (self.minute * 60 * fps + self.second * fps + self.frame) as u32
+    }
+
+    pub fn new_with_defaults(minute: Option<u8>, second: Option<u8>, frame: Option<u8>) -> Self {
         TimeStamp {
             minute: minute.unwrap_or(0),
             second: second.unwrap_or(0),
             frame: frame.unwrap_or(0)
         }
     }
+
 
 
     pub fn increment(&mut self) {

@@ -1,6 +1,6 @@
 mod tests {
-    use crate::mutator::timestamp::TimeStamp;
-    use crate::utils::defaults::DEFAULT_FPS;
+    use crate::core::mutator::timestamp::TimeStamp;
+    use crate::core::utils::defaults::DEFAULT_FPS;
 
     // timestamp tests
     #[test]
