@@ -36,7 +36,7 @@ impl BaseEntity {
 
 impl Entity for BaseEntity {
     fn render(&self, &active_frame: &TimeStamp, fps: u8) -> Array3<u8> {
-        self.pixels
+        todo!()
     }
 
 
@@ -96,6 +96,7 @@ impl<E> Canvas for NewCanvas<E> where E: Entity + Clone {
         // let end_frame = (4u32 * fps as u32) as f64;
         // self.pixels.slice_mut(s![.., .., 0]).fill((256f64 * (active_frame.as_num_frames(fps) as f64 / end_frame)) as u8);
         // pixels.slice_mut(s![.., .., 1]).fill((256f64 * ((end_frame - active_frame.as_num_frames(fps) as f64) / end_frame)) as u8);
+        todo!()
     }
 }
 
