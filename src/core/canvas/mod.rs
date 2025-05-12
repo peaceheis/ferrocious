@@ -59,7 +59,7 @@ pub trait Canvas {
                 // TODO this casting nonsense is kinda ridiculous, is there a better way?
                 let (upper_left_x_u32, upper_left_y_u32) = entity.upper_left_coords();
                 let (upper_left_x, upper_left_y) = (upper_left_x_u32 as i32, upper_left_y_u32 as i32);
-                let (size_x_u32, size_y_u32) = entity.get_size();
+                let (size_x_u32, size_y_u32) = entity.get_dimensions();
                 let (size_x, size_y) = (size_x_u32 as i32, size_y_u32 as i32);
                 let entity_render = entity.render(&current_frame, FPS);
                 let end_x: i32 = if { WIDTH as i32 } < upper_left_x + size_x { WIDTH as i32 } else { size_x as i32 };

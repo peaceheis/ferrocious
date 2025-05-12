@@ -1,3 +1,4 @@
+use std::any::Any;
 use ndarray::Array3;
 use crate::core::{Entity, Mutator, TimeStamp};
 
@@ -16,7 +17,7 @@ impl Entity for NGon {
         todo!()
     }
 
-    fn get_size(&self) -> (u32, u32) {
+    fn get_dimensions(&self) -> (u32, u32) {
         (self.x_size, self.y_size)
     }
 
@@ -29,6 +30,18 @@ impl Entity for NGon {
     }
 
     fn tick(&mut self, frame: &TimeStamp) {
+        todo!()
+    }
+
+    fn tick_mutators(&mut self, frame: &TimeStamp) {
+        todo!()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        todo!()
+    }
+
+    fn as_any_mut(&self) -> &mut dyn Any {
         todo!()
     }
 }

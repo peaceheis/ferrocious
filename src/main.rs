@@ -1,11 +1,7 @@
+use std::any::Any;
 use ndarray::s;
 use ndarray::{Array2, Array3, Shape};
-use vulkano::device::QueueFlags;
-use vulkano::instance::{Instance, InstanceCreateFlags, InstanceCreateInfo};
-use vulkano::VulkanLibrary;
-use ferrocious::core::{Canvas, Entity, TimeStamp};
-use ferrocious::core::vulkan;
-use ferrocious::core::vulkan::initialize_vulkan;
+use ferrocious::core::{Canvas, Entity, Mutator, TimeStamp};
 
 fn main() {
     tracing_subscriber::fmt::init();
@@ -40,11 +36,11 @@ impl BaseEntity {
 
 impl Entity for BaseEntity {
     fn render(&self, &active_frame: &TimeStamp, fps: u8) -> Array3<u8> {
-        pixels
+        self.pixels
     }
 
 
-    fn get_size(&self) -> (u32, u32) {
+    fn get_dimensions(&self) -> (u32, u32) {
         (self.width, self.height)
     }
 
@@ -60,6 +56,21 @@ impl Entity for BaseEntity {
 
     }
 
+    fn tick_mutators(&mut self, frame: &TimeStamp) {
+        todo!()
+    }
+
+    fn get_mutators(&self) -> &Vec<Box<dyn Mutator>> {
+        todo!()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        todo!()
+    }
+
+    fn as_any_mut(&self) -> &mut dyn Any {
+        todo!()
+    }
 }
 
 struct NewCanvas<E: Entity>(Vec<E>, Array3<u8>);
@@ -82,9 +93,9 @@ impl<E> Canvas for NewCanvas<E> where E: Entity + Clone {
     }
 
     fn get_background(&self, current_frame: &TimeStamp) -> Array3<u8> {
-        let end_frame = (4u32 * fps as u32) as f64;
-        self.pixels.slice_mut(s![.., .., 0]).fill((256f64 * (active_frame.as_num_frames(fps) as f64 / end_frame)) as u8);
-        pixels.slice_mut(s![.., .., 1]).fill((256f64 * ((end_frame - active_frame.as_num_frames(fps) as f64) / end_frame)) as u8);
+        // let end_frame = (4u32 * fps as u32) as f64;
+        // self.pixels.slice_mut(s![.., .., 0]).fill((256f64 * (active_frame.as_num_frames(fps) as f64 / end_frame)) as u8);
+        // pixels.slice_mut(s![.., .., 1]).fill((256f64 * ((end_frame - active_frame.as_num_frames(fps) as f64) / end_frame)) as u8);
     }
 }
 
