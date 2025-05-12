@@ -7,7 +7,7 @@ mod tests {
     fn test_timestamp_incrementer() {
         let mut ts = TimeStamp::new(1, 3, 2);
         for _n in 0..DEFAULT_FPS + 1{
-            ts.increment();
+            ts.increment(DEFAULT_FPS);
         }
         assert_eq!(ts, TimeStamp::new(1, 4, 2));
     }
@@ -15,8 +15,22 @@ mod tests {
     #[test]
     fn test_timestamp_minute_rollover() {
         let mut ts = TimeStamp::new(1, 59, DEFAULT_FPS);
-        ts.increment();
+        ts.increment(DEFAULT_FPS);
         assert_eq!(ts, TimeStamp::new(2, 0, 0));
+    }
+
+    #[test]
+    fn test_timestamp_second_rollover() {
+        let mut ts = TimeStamp::new(0, 0, DEFAULT_FPS-1);
+        ts.increment(DEFAULT_FPS);
+        assert_eq!(ts, TimeStamp::new(0, 1, 0));
+    }
+
+    #[test]
+    fn test_timestamp_off_by_one_rollover() {
+        let mut ts = TimeStamp::new(0, 0, DEFAULT_FPS-2);
+        ts.increment(DEFAULT_FPS);
+        assert_eq!(ts, TimeStamp::new(0, 1, DEFAULT_FPS-1));
     }
 
     #[test]
@@ -57,5 +71,11 @@ mod tests {
     #[test]
     fn test_timestamp_array() {
         assert_eq!(TimeStamp::new(1, 3, 2).time_as_array(), [1, 3, 2]);
+    }
+
+    #[test]
+    fn test_timestamp_as_num_frames() {
+        let expected_num_frames: u32 = (2+3*DEFAULT_FPS+1*60*DEFAULT_FPS) as u32;
+        assert_eq!(TimeStamp::new(1, 3, 2).as_num_frames(DEFAULT_FPS), expected_num_frames);
     }
 }

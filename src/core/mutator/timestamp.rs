@@ -34,10 +34,10 @@ impl TimeStamp {
 
 
 
-    pub fn increment(&mut self) {
+    pub fn increment(&mut self, fps: u8) {
         self.frame += 1;
 
-        if self.frame > DEFAULT_FPS { //TODO: allow for context-based FPS
+        if self.frame >= fps {
             self.frame = 0;
             self.second += 1;
         }

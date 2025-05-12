@@ -47,7 +47,7 @@ pub trait Canvas {
 
         while current_frame < end {
             let mut frame = self.get_background(&current_frame);
-            current_frame.increment();
+            current_frame.increment(FPS);
             println!("processing frame {}", current_frame);
             for mut entity in self.get_entities() {
                 if !entity.is_active_at(&current_frame) {
