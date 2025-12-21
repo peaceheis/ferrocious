@@ -7,6 +7,8 @@ use ferrocious::core::mutator::timestamp::TimeStamp;
 use ferrocious::stl::entities::Polygon;
 use std::f32::consts::PI;
 use std::time::Instant;
+use ferrocious::core::interpolate::EasingFunction::EaseInOut;
+use ferrocious::stl::shaders::colors::*;
 
 fn main() {
     let now = Instant::now();
@@ -15,7 +17,7 @@ fn main() {
     #[cfg(feature = "stl")]
     {
         let end = TimeStamp::new(0, 10, 0);
-        let canvas = DemoCanvas::new();
+        let canvas = PrideCanvas::new();
         unsafe { canvas.save("output", "animation.mp4", end) }
     }
     
@@ -40,8 +42,8 @@ impl DemoCanvas {
         let mut entities = Vec::new();
 
         // STRESS TEST: Create a grid of animated polygons
-        let grid_size = 50; // 20x20 = 400 polygons
-        let polygon_size = 0.05;
+        let grid_size = 20; // 20x20 = 400 polygons
+        let polygon_size = 0.02;
 
         for row in 0..grid_size {
             for col in 0..grid_size {
@@ -175,18 +177,63 @@ impl DemoCanvas {
     }
 }
 
+
+#[cfg(feature = "stl")]
+struct PrideCanvas {
+    entities: Vec<Polygon>,
+}
+
+#[cfg(feature = "stl")]
+impl PrideCanvas {
+    fn new() -> Self {  
+        let colors = vec![RED, ORANGE, YELLOW];
+        let mut entities = colors.iter().enumerate().map(
+            |(i, iter)| {
+                Polygon::rectangle([-1.0, (i as f32 + 1.0)/3f32 -(1.0/6.0) - 1.0], 2.0, 1.0/3.0, iter.clone())
+                    .with_transform(Interpolator::linear(Transform::new().with_position([-1.0, (i as f32 + 1.0)/3f32 -(1.0/6.0) - 1.0]), Transform::new().with_position([1.0, (i as f32 + 1.0)/3f32 -(1.0/6.0) - 1.0]), TimeStamp::new(0, ((i / 6) * 5) as u32, 0), TimeStamp::new(0, 10, 0)))
+            }
+        ).collect::<Vec<_>>();
+        Self { entities }
+    }
+    
+}
+
+#[cfg(feature = "stl")]
+impl Canvas for PrideCanvas {
+    fn construct(&self) {
+        // No longer needed - entities are defined in new()
+    }
+
+    fn get_width_and_height(& self) -> (u32, u32) {
+        (640, 640)
+    }
+
+    fn get_fps(&self) -> u32 {
+        24
+    }
+
+    fn get_entities(&self) -> Vec<&impl Entity> {
+        self.entities.iter().collect()
+    }
+
+    
+    fn get_background_color(&self, _current_frame: &TimeStamp) -> [u8; 4] {
+        [1u8, 1u8, 1u8, 1u8]
+    }
+}
+
 #[cfg(feature = "stl")]
 impl Canvas for DemoCanvas {
     fn construct(&self) {
         // No longer needed - entities are defined in new()
     }
 
-    fn get_width_and_height(&self) -> (u32, u32) {
-        (1920, 2080)
+    fn get_width_and_height(& self) -> (u32, u32) {
+        (1080, 1380)
     }
 
-    fn get_fps(&self) -> u8 {
-        24
+    fn get_fps(&self) -> u32 {
+        48
     }
 
     fn get_entities(&self) -> Vec<&impl Entity> {

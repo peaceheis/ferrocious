@@ -43,7 +43,7 @@ pub trait Interpolate<T: Interpolatable> {
     ///
     /// # Returns
     /// The interpolated value at the given time
-    fn evaluate(&self, time: &TimeStamp, fps: u8) -> T;
+    fn evaluate(&self, time: &TimeStamp, fps: u32) -> T;
 }
 
 /// Trait for types that can be interpolated between values
@@ -183,7 +183,7 @@ pub enum Interpolator<T: Interpolatable> {
 
 impl<T: Interpolatable> Interpolator<T> {
     /// Evaluate the interpolator at a given time
-    pub fn evaluate(&self, time: &TimeStamp, fps: u8) -> T {
+    pub fn evaluate(&self, time: &TimeStamp, fps: u32) -> T {
         match self {
             Interpolator::Constant(value) => value.clone(),
 
@@ -252,7 +252,7 @@ impl<T: Interpolatable> Interpolator<T> {
     }
 
     /// Compute linear progress [0, 1] between two timestamps
-    fn compute_progress(current: &TimeStamp, start: &TimeStamp, end: &TimeStamp, fps: u8) -> f32 {
+    fn compute_progress(current: &TimeStamp, start: &TimeStamp, end: &TimeStamp, fps: u32) -> f32 {
         if start == end {
             return 1.0;
         }
@@ -339,7 +339,7 @@ impl<T: Interpolatable> Interpolator<T> {
 
 // Implement Interpolate trait for the built-in Interpolator enum
 impl<T: Interpolatable> Interpolate<T> for Interpolator<T> {
-    fn evaluate(&self, time: &TimeStamp, fps: u8) -> T {
+    fn evaluate(&self, time: &TimeStamp, fps: u32) -> T {
         // Delegate to the existing evaluate method
         Interpolator::evaluate(self, time, fps)
     }
@@ -450,8 +450,8 @@ mod tests {
         }
 
         impl Interpolate<f32> for SineWave {
-            fn evaluate(&self, time: &TimeStamp, fps: u8) -> f32 {
-                let t = time.as_num_frames(fps as u32) as f32 / fps as f32;
+            fn evaluate(&self, time: &TimeStamp, fps: u32) -> f32 {
+                let t = time.as_num_frames(fps) as f32 / fps as f32;
                 self.amplitude * (t * self.frequency * 2.0 * std::f32::consts::PI).sin()
             }
         }
@@ -482,7 +482,7 @@ mod tests {
         // Custom trait approach (flexible)
         struct DoubleValue;
         impl Interpolate<f32> for DoubleValue {
-            fn evaluate(&self, _time: &TimeStamp, _fps: u8) -> f32 {
+            fn evaluate(&self, _time: &TimeStamp, _fps: u32) -> f32 {
                 42.0
             }
         }

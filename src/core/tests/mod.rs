@@ -1,6 +1,7 @@
 mod tests {
     use crate::core::mutator::timestamp::TimeStamp;
     use crate::core::utils::defaults::DEFAULT_FPS;
+    use crate::ts;
 
     // timestamp tests
     #[test]
@@ -80,5 +81,36 @@ mod tests {
             TimeStamp::new(1, 3, 2).as_num_frames(DEFAULT_FPS),
             expected_num_frames
         );
+    }
+
+    // ts! macro tests
+    #[test]
+    fn test_ts_macro_three_args() {
+        assert_eq!(ts!(1, 30, 12), TimeStamp::new(1, 30, 12));
+    }
+
+    #[test]
+    fn test_ts_macro_two_args() {
+        // Two args: (second, frame), minute defaults to 0
+        assert_eq!(ts!(30, 12), TimeStamp::new(0, 30, 12));
+    }
+
+    #[test]
+    fn test_ts_macro_one_arg() {
+        // One arg: seconds only, minute and frame default to 0
+        assert_eq!(ts!(5), TimeStamp::new(0, 5, 0));
+    }
+
+    #[test]
+    fn test_ts_macro_with_expressions() {
+        // Macro should work with expressions, not just literals
+        let min = 1;
+        let sec = 30;
+        assert_eq!(ts!(min, sec, 0), TimeStamp::new(1, 30, 0));
+    }
+
+    #[test]
+    fn test_ts_macro_zero() {
+        assert_eq!(ts!(0), TimeStamp::new(0, 0, 0));
     }
 }

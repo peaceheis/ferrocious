@@ -1,3 +1,5 @@
+pub mod colors;
+
 mod simple_vertex_shader {
     vulkano_shaders::shader! {
         ty: "vertex",

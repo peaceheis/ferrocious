@@ -111,3 +111,17 @@ impl fmt::Display for TimeStamp {
         )
     }
 }
+
+
+#[macro_export]
+macro_rules! ts {
+    ($minute:expr, $second:expr, $frame:expr) => {
+        TimeStamp::new($minute, $second, $frame)
+    };
+    ($second:expr, $frame:expr) => {
+        TimeStamp::new(0, $second, $frame)
+    };
+    ($second:expr) => {
+        TimeStamp::new(0, $second, 0)
+    };
+}

@@ -20,7 +20,7 @@ pub trait Entity {
 
     /// Renders the entity at the given time, returning vertices
     /// This is a pure function - same time always produces same output
-    fn render(&self, time: &TimeStamp, fps: u8) -> Vec<RenderedVertex>;
+    fn render(&self, time: &TimeStamp, fps: u32) -> Vec<RenderedVertex>;
 
     /// Get vertex shader (override for custom shaders)
     fn get_vertex_shader(&self, defaults: &DefaultShaders) -> Arc<ShaderModule> {
@@ -80,7 +80,7 @@ impl Entity for PlainEntity {
         self.active_ranges.clone()
     }
 
-    fn render(&self, _time: &TimeStamp, _fps: u8) -> Vec<RenderedVertex> {
+    fn render(&self, _time: &TimeStamp, _fps: u32) -> Vec<RenderedVertex> {
         // PlainEntity just returns static vertices (doesn't change over time)
         self.vertices.clone()
     }

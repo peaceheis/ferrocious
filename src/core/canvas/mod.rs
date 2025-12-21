@@ -15,7 +15,7 @@ use vulkano::pipeline::graphics::viewport::Viewport;
 pub trait Canvas {
     fn construct(&self);
     fn get_width_and_height(&self) -> (u32, u32);
-    fn get_fps(&self) -> u8;
+    fn get_fps(&self) -> u32;
     #[allow(refining_impl_trait)]
     fn get_entities(&self) -> Vec<&impl Entity>;
     //fn get_background(&self, current_frame: &TimeStamp) -> Array3<u8>;
@@ -24,7 +24,7 @@ pub trait Canvas {
     unsafe fn save(&self, end_dir: &str, name: &str, end: TimeStamp) {
         println!("Starting write");
 
-        let FPS: u8 = self.get_fps();
+        let FPS: u32 = self.get_fps();
         let duration: Time = Time::from_nth_of_a_second(FPS as usize);
         let mut position = Time::zero();
         let (WIDTH, HEIGHT): (u32, u32) = self.get_width_and_height();
