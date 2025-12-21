@@ -1,84 +1,144 @@
-use std::env::current_dir;
-use std::fs;
-use std::fs::create_dir_all;
-use std::io::{Read, Write};
-use std::path::Path;
-use ndarray::{Array3, s};
-use subprocess::{Popen, PopenConfig, Redirection};
-use crate::core::mutator::timestamp::TimeStamp;
 use crate::core::entity::Entity;
+use crate::core::mutator::timestamp::TimeStamp;
+use crate::core::render::RenderContext;
 pub use ndarray::Array2;
+use std::env::current_dir;
+use std::fs::create_dir_all;
+use std::path::Path;
 use video_rs::encode::Settings;
-use video_rs::{Encoder, Frame, Options, Time};
-use video_rs::ffmpeg::color::Space::RGB;
-use video_rs::ffmpeg::format::Pixel::{RGB24, RGBA, YUV420P};
+use video_rs::ffmpeg::format::Pixel::{RGBA, YUV420P};
+use video_rs::{Encoder, Options, Time};
+use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, CopyImageToBufferInfo, RenderPassBeginInfo, SubpassBeginInfo, SubpassContents, SubpassEndInfo};
+use vulkano::format::ClearValue;
+use vulkano::pipeline::graphics::viewport::Viewport;
 
 pub trait Canvas {
     fn construct(&self);
     fn get_width_and_height(&self) -> (u32, u32);
     fn get_fps(&self) -> u8;
+    #[allow(refining_impl_trait)]
     fn get_entities(&self) -> Vec<&impl Entity>;
-    fn get_background(&self, current_frame: &TimeStamp) -> Array3<u8>;
-    fn unmask(rgba: u32) -> [u8; 4] {
-        [
-            ((rgba & 0xFF000000) >> 24) as u8,
-            ((rgba & 0x00FF0000) >> 24) as u8,
-            ((rgba & 0x0000FF00) >> 24) as u8,
-            ((rgba & 0x000000FF) >> 24) as u8,
-        ]
-    }
+    //fn get_background(&self, current_frame: &TimeStamp) -> Array3<u8>;
+    fn get_background_color(&self, current_frame: &TimeStamp) -> [u8; 4];
 
-    fn save(&self, end_dir: &str, name: &str, end: TimeStamp) {
+    unsafe fn save(&self, end_dir: &str, name: &str, end: TimeStamp) {
         println!("Starting write");
 
         let FPS: u8 = self.get_fps();
         let duration: Time = Time::from_nth_of_a_second(FPS as usize);
         let mut position = Time::zero();
         let (WIDTH, HEIGHT): (u32, u32) = self.get_width_and_height();
+        let render_context = RenderContext::init().expect("failed to init render context");
 
-        let dir: &str = &format!("{}/{}", current_dir().expect("couldn't get current directory").display(), end_dir);
+        let dir: &str = &format!(
+            "{}/{}",
+            current_dir()
+                .expect("couldn't get current directory")
+                .display(),
+            end_dir
+        );
         create_dir_all(dir).expect("Couldn't make directory");
         let path: &str = &format!("{}/{}", dir, name);
         video_rs::init().unwrap();
-        let settings = Settings::preset_h264_custom(WIDTH as usize, HEIGHT as usize, YUV420P, Options::default());
-        let mut encoder = Encoder::new(Path::new(path), settings).expect("failed to create encoder");
+        let settings = Settings::preset_h264_yuv420p(
+            WIDTH as usize,
+            HEIGHT as usize,
+            true,
+        );
+        let mut encoder =
+            Encoder::new(Path::new(path), settings).expect("failed to create encoder");
 
         let mut current_frame = TimeStamp::new_with_defaults(None, None, None);
+        let mut image = render_context.init_image(WIDTH, HEIGHT);
+        let mut out_buffer = render_context.get_default_image_buffer(WIDTH, HEIGHT, self.get_background_color(&current_frame));
+
+        // compile all the shaders necessary for rendering?
+
+        let VIEWPORT = Viewport {
+            offset: [0.0, 0.0],
+            extent: [WIDTH as f32, HEIGHT as f32],
+            depth_range: 0.0..=1.0,
+        };
 
         while current_frame < end {
-            let mut frame = self.get_background(&current_frame);
+            image = render_context.init_image(WIDTH, HEIGHT);
+
+            let mut builder = AutoCommandBufferBuilder::primary(
+                render_context.command_buffer_allocator.clone(),
+                render_context.queue_family_index,
+                CommandBufferUsage::OneTimeSubmit,
+            )
+                .unwrap();
+
+            builder
+                .begin_render_pass(
+                    RenderPassBeginInfo {
+                        clear_values: vec![Some(ClearValue::from(
+                            self.get_background_color(&current_frame).map(|x| x as f32 / 255.0)
+                        ))],
+                        ..RenderPassBeginInfo::framebuffer(
+                            render_context.init_framebuffer(image.clone()),
+                        )
+                    },
+                    SubpassBeginInfo {
+                        contents: SubpassContents::Inline,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+
+      
+
             current_frame.increment(FPS);
             println!("processing frame {}", current_frame);
-            for mut entity in self.get_entities() {
-                if !entity.is_active_at(&current_frame) {
-                    continue;
-                }
 
+            // build out buffer and attachments that can be shared by entities?
 
-                entity.tick(&current_frame);
-                // TODO this casting nonsense is kinda ridiculous, is there a better way?
-                let (upper_left_x_u32, upper_left_y_u32) = entity.upper_left_coords();
-                let (upper_left_x, upper_left_y) = (upper_left_x_u32 as i32, upper_left_y_u32 as i32);
-                let (size_x_u32, size_y_u32) = entity.get_dimensions();
-                let (size_x, size_y) = (size_x_u32 as i32, size_y_u32 as i32);
-                let entity_render = entity.render(&current_frame, FPS);
-                let end_x: i32 = if { WIDTH as i32 } < upper_left_x + size_x { WIDTH as i32 } else { size_x as i32 };
-                let end_y: i32 = if { HEIGHT as i32} < upper_left_y + size_y { HEIGHT as i32 } else { size_y as i32 };
-                println!("upper left x {}, upper left y {}, end_x {}, end_y {}, width {}, height {}", upper_left_x, upper_left_y, end_x, end_y, WIDTH, HEIGHT);
-                frame.slice_mut(s![upper_left_x..{end_x + upper_left_x}, upper_left_y..{upper_left_y+end_y}, ..]).assign(&entity_render.slice(s![..end_x, ..end_y, ..]));
+            for entity in self.get_entities().iter().filter(|entity| {
+                current_frame.matches_range(&entity.active_range())
+            }) {
+                // build out renderpass
+                let vertices = entity.render(&current_frame, FPS);
+                let num_vertices = vertices.len();
+                let pipeline = render_context.assemble_pipeline(
+                    entity.get_vertex_shader(&render_context.default_shaders),
+                    entity.get_fragment_shader(&render_context.default_shaders),
+                    VIEWPORT.clone(),
+                );
+                // todo: full safety analysis, but generally we should be upholding the invariants of the render context
+                builder
+                    .bind_pipeline_graphics(pipeline)
+                    .unwrap()
+                    .bind_vertex_buffers(0, render_context.build_vertex_buffer(vertices))
+                    .unwrap()
+                    .draw(num_vertices as u32, 1, 0, 0)
+                    .unwrap();
             }
+            builder.end_render_pass(SubpassEndInfo::default()).unwrap();
 
-            let last: Frame = frame.clone() as Frame;
+            // Copy the rendered image to the output buffer
+            builder.copy_image_to_buffer(CopyImageToBufferInfo::image_buffer(
+                image.clone(),
+                out_buffer.clone(),
+            )).unwrap();
+
+            let command_buffer = builder.build().unwrap();
             encoder
-                .encode(&last, position)
+                .encode(
+                    &render_context.render_frame(
+                        command_buffer.clone(),
+                        &mut out_buffer,
+                        WIDTH as usize,
+                        HEIGHT as usize,
+                    ),
+                    position,
+                )
                 .expect("failed to encode frame");
+
 
             // Update the current position and add the inter-frame duration to it.
             position = position.aligned_with(duration).add();
-
         }
         encoder.finish().expect("failed to finish encoder");
     }
 }
-
-

@@ -1,4 +1,5 @@
 pub mod core;
 
-#[cfg(feature="stl")]
+
+#[cfg(feature = "stl")]
 pub mod stl;

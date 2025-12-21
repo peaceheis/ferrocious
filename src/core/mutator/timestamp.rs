@@ -1,18 +1,19 @@
-use crate::core::utils::defaults::DEFAULT_FPS;
 use std::cmp::Ordering;
 use std::cmp::Ordering::{Equal, Greater, Less};
 use std::fmt;
 use std::fmt::Formatter;
+use vulkano::buffer::BufferContents;
 
-#[derive(Eq, Debug, Default, Copy, Clone)]
+#[derive(PartialEq, Eq, Debug, Default, Copy, Clone, BufferContents)]
+#[repr(C)]
 pub struct TimeStamp {
-    pub minute: u8,
-    pub second: u8,
-    pub frame: u8,
+    pub minute: u32,
+    pub second: u32,
+    pub frame: u32,
 }
 
 impl TimeStamp {
-    pub fn new(minute: u8, second: u8, frame: u8) -> Self {
+    pub fn new(minute: u32, second: u32, frame: u32) -> Self {
         TimeStamp {
             minute,
             second,
@@ -20,24 +21,22 @@ impl TimeStamp {
         }
     }
 
-    pub fn as_num_frames(&self, fps: u8) -> u32 {
+    pub fn as_num_frames(&self, fps: u32) -> u32 {
         (self.minute * 60 * fps + self.second * fps + self.frame) as u32
     }
 
-    pub fn new_with_defaults(minute: Option<u8>, second: Option<u8>, frame: Option<u8>) -> Self {
+    pub fn new_with_defaults(minute: Option<u32>, second: Option<u32>, frame: Option<u32>) -> Self {
         TimeStamp {
             minute: minute.unwrap_or(0),
             second: second.unwrap_or(0),
-            frame: frame.unwrap_or(0)
+            frame: frame.unwrap_or(0),
         }
     }
 
-
-
-    pub fn increment(&mut self, fps: u8) {
+    pub fn increment(&mut self, fps: u32) {
         self.frame += 1;
 
-        if self.frame >= fps {
+        if self.frame >= fps.into() {
             self.frame = 0;
             self.second += 1;
         }
@@ -48,18 +47,24 @@ impl TimeStamp {
         }
     }
 
-    pub fn time_as_array(&self) -> [u8;3] {
+    pub fn time_as_array(&self) -> [u32; 3] {
         [self.minute, self.second, self.frame]
+    }
+
+    pub fn in_range(&self, intervals: &Vec<[TimeStamp; 2]>) -> bool {
+        intervals
+            .iter()
+            .any(|interval| interval[0] <= *self && *self <= interval[1])
+    }
+
+    pub fn matches_range(&self, range: &Option<Vec<[TimeStamp; 2]>>) -> bool {
+        match range {
+            None => true, // No range means always visible
+            Some(intervals) => self.in_range(intervals),
+        }
     }
 }
 
-impl PartialEq<Self> for TimeStamp {
-    fn eq(&self, other: &Self) -> bool {
-        self.minute.eq(&other.minute)
-            && self.second.eq(&other.second)
-            && self.frame.eq(&other.frame)
-    }
-}
 
 impl PartialOrd for TimeStamp {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -75,11 +80,10 @@ impl PartialOrd for TimeStamp {
     }
 
     fn lt(&self, other: &Self) -> bool {
-        other.minute > self.minute ||
-            (other.minute == self.minute &&
-                (other.second > self.second ||
-                    (other.second == self.second &&
-                        other.frame > self.frame)))
+        other.minute > self.minute
+            || (other.minute == self.minute
+                && (other.second > self.second
+                    || (other.second == self.second && other.frame > self.frame)))
     }
 
     fn le(&self, other: &Self) -> bool {
@@ -87,11 +91,10 @@ impl PartialOrd for TimeStamp {
     }
 
     fn gt(&self, other: &Self) -> bool {
-        other.minute < self.minute ||
-            (other.minute == self.minute &&
-                (other.second < self.second ||
-                    (other.second == self.second &&
-                        other.frame < self.frame)))
+        other.minute < self.minute
+            || (other.minute == self.minute
+                && (other.second < self.second
+                    || (other.second == self.second && other.frame < self.frame)))
     }
 
     fn ge(&self, other: &Self) -> bool {
