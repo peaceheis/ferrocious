@@ -1,5 +1,8 @@
-use std::any::Any;
+use crate::core::entity::RenderedVertex;
+use crate::core::render::default_shaders::{flat_colored_fragment_shader, simple_vertex_shader};
+use crate::core::render::rgba::RGBA;
 use ndarray::Array3;
+use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -19,7 +22,7 @@ use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage};
 use vulkano::instance::{Instance, InstanceCreateFlags, InstanceCreateInfo};
 use vulkano::memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator};
 use vulkano::pipeline::graphics::color_blend::{ColorBlendAttachmentState, ColorBlendState};
-use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
+use vulkano::pipeline::graphics::input_assembly::{InputAssemblyState, PrimitiveTopology};
 use vulkano::pipeline::graphics::multisample::MultisampleState;
 use vulkano::pipeline::graphics::rasterization::RasterizationState;
 use vulkano::pipeline::graphics::vertex_input::Vertex as VulkanoVertex;
@@ -32,17 +35,14 @@ use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpa
 use vulkano::shader::ShaderModule;
 use vulkano::sync::GpuFuture;
 use vulkano::{sync, VulkanLibrary};
-use crate::core::entity::RenderedVertex;
-use crate::core::render::default_shaders::{flat_colored_fragment_shader, simple_vertex_shader};
-use crate::core::render::rgba::RGBA;
 
+mod GraphicsPassContext;
 pub mod default_shaders;
 pub mod pipeline_layouts;
 pub mod rgba;
-mod GraphicsPassContext;
 
 /// Key for caching graphics pipelines
-/// Pipelines are uniquely identified by their shaders and viewport dimensions
+/// Pipelines are uniquely identified by their shaders, viewport dimensions, and topology
 #[derive(Hash, Eq, PartialEq, Clone)]
 struct PipelineKey {
     // Use Arc::as_ptr() for comparison - same shader = same pointer
@@ -50,15 +50,22 @@ struct PipelineKey {
     fragment_shader_ptr: usize,
     viewport_width: u32,
     viewport_height: u32,
+    topology: u8, // Store as u8 for hashability
 }
 
 impl PipelineKey {
-    fn new(vs: &Arc<ShaderModule>, fs: &Arc<ShaderModule>, viewport: &Viewport) -> Self {
+    fn new(
+        vs: &Arc<ShaderModule>,
+        fs: &Arc<ShaderModule>,
+        viewport: &Viewport,
+        topology: PrimitiveTopology,
+    ) -> Self {
         Self {
             vertex_shader_ptr: Arc::as_ptr(vs) as usize,
             fragment_shader_ptr: Arc::as_ptr(fs) as usize,
             viewport_width: viewport.extent[0] as u32,
             viewport_height: viewport.extent[1] as u32,
+            topology: topology as u8,
         }
     }
 }
@@ -79,10 +86,14 @@ pub struct RenderContext {
 impl RenderContext {
     pub fn init() -> Result<RenderContext, Box<dyn std::error::Error>> {
         let library = VulkanLibrary::new()?;
-        let instance = Instance::new(library, InstanceCreateInfo {
-            flags: InstanceCreateFlags::ENUMERATE_PORTABILITY,
-            ..Default::default()
-        }).expect("failed to create Vulkan instance");
+        let instance = Instance::new(
+            library,
+            InstanceCreateInfo {
+                flags: InstanceCreateFlags::ENUMERATE_PORTABILITY,
+                ..Default::default()
+            },
+        )
+        .expect("failed to create Vulkan instance");
 
         // device & queue creation
         let physical_device = Self::init_physical_device(&instance);
@@ -158,7 +169,13 @@ impl RenderContext {
             SIMPLE_VERTEX_SHADER: simple_vertex_shader::load(device.clone())
                 .expect("failed to initialize SIMPLE VERTEX SHADER"),
             FLAT_COLORED_FRAGMENT_SHADER: flat_colored_fragment_shader::load(device.clone())
-                .expect("failed to initialize SIMPLE VERTEX SHADER"),
+                .expect("failed to initialize FLAT COLORED FRAGMENT SHADER"),
+            #[cfg(feature = "stl")]
+            TRIG_LINE_VERTEX: crate::stl::shaders::trig_line::vertex::load(device.clone())
+                .expect("failed to initialize TRIG LINE VERTEX SHADER"),
+            #[cfg(feature = "stl")]
+            TRIG_LINE_FRAGMENT: crate::stl::shaders::trig_line::fragment::load(device.clone())
+                .expect("failed to initialize TRIG LINE FRAGMENT SHADER"),
         }
     }
 
@@ -176,7 +193,10 @@ impl RenderContext {
                 image_type: ImageType::Dim2d,
                 format: Format::R8G8B8A8_UNORM,
                 extent: [width, height, 1],
-                usage: ImageUsage::TRANSFER_DST | ImageUsage::TRANSFER_SRC | ImageUsage::COLOR_ATTACHMENT |ImageUsage::SAMPLED,
+                usage: ImageUsage::TRANSFER_DST
+                    | ImageUsage::TRANSFER_SRC
+                    | ImageUsage::COLOR_ATTACHMENT
+                    | ImageUsage::SAMPLED,
                 ..Default::default()
             },
             AllocationCreateInfo {
@@ -187,8 +207,12 @@ impl RenderContext {
         .unwrap()
     }
 
-    pub fn get_default_image_buffer(&self, width: u32, height: u32, default_color: [u8; 4]) -> Subbuffer<[u8]> {
-
+    pub fn get_default_image_buffer(
+        &self,
+        width: u32,
+        height: u32,
+        default_color: [u8; 4],
+    ) -> Subbuffer<[u8]> {
         Buffer::from_iter(
             self.memory_allocator.clone(),
             BufferCreateInfo {
@@ -200,7 +224,7 @@ impl RenderContext {
                     | MemoryTypeFilter::HOST_RANDOM_ACCESS,
                 ..Default::default()
             },
-            (0..width * height * 4).map(|i| default_color[i as usize %4]),
+            (0..width * height * 4).map(|i| default_color[i as usize % 4]),
         )
         .expect("failed to create buffer")
     }
@@ -295,8 +319,9 @@ impl RenderContext {
         vs: Arc<ShaderModule>,
         fs: Arc<ShaderModule>,
         viewport: Viewport,
+        topology: PrimitiveTopology,
     ) -> Arc<GraphicsPipeline> {
-        let key = PipelineKey::new(&vs, &fs, &viewport);
+        let key = PipelineKey::new(&vs, &fs, &viewport, topology);
 
         // Check cache first
         {
@@ -333,7 +358,10 @@ impl RenderContext {
             GraphicsPipelineCreateInfo {
                 stages: stages.into_iter().collect(),
                 vertex_input_state: Some(vertex_input_state),
-                input_assembly_state: Some(InputAssemblyState::default()),
+                input_assembly_state: Some(InputAssemblyState {
+                    topology,
+                    ..Default::default()
+                }),
                 viewport_state: Some(ViewportState {
                     viewports: [viewport].into_iter().collect(),
                     ..Default::default()
@@ -351,7 +379,9 @@ impl RenderContext {
         .unwrap();
 
         // Cache the pipeline for future use
-        self.pipeline_cache.borrow_mut().insert(key, pipeline.clone());
+        self.pipeline_cache
+            .borrow_mut()
+            .insert(key, pipeline.clone());
 
         pipeline
     }
@@ -371,20 +401,22 @@ impl RenderContext {
 
         future.wait(None).unwrap();
         let buffer_content = buf.read().unwrap();
-        
-        
+
         // Convert RGBA to RGB (remove alpha channel)
         let mut rgb_data = Vec::with_capacity(WIDTH * HEIGHT * 3);
         for chunk in buffer_content.chunks_exact(4) {
             rgb_data.extend_from_slice(&chunk[..3]); // Take only R, G, B (skip A)
         }
-        
-        Array3::from_shape_vec((HEIGHT, WIDTH, 3), rgb_data).unwrap()
 
+        Array3::from_shape_vec((HEIGHT, WIDTH, 3), rgb_data).unwrap()
     }
 }
 
 pub struct DefaultShaders {
     pub SIMPLE_VERTEX_SHADER: Arc<ShaderModule>,
     pub FLAT_COLORED_FRAGMENT_SHADER: Arc<ShaderModule>,
+    #[cfg(feature = "stl")]
+    pub TRIG_LINE_VERTEX: Arc<ShaderModule>,
+    #[cfg(feature = "stl")]
+    pub TRIG_LINE_FRAGMENT: Arc<ShaderModule>,
 }

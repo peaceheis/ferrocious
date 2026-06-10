@@ -2,14 +2,40 @@ pub mod attributes;
 pub mod bindings;
 pub mod builder;
 
+use crate::core::mutator::timestamp::TimeStamp;
+use crate::core::render::DefaultShaders;
 pub use ndarray::Array2;
 use std::sync::Arc;
 use vulkano::buffer::BufferContents;
+use vulkano::command_buffer::AutoCommandBufferBuilder;
+use vulkano::command_buffer::PrimaryAutoCommandBuffer;
 use vulkano::pipeline::graphics::color_blend::ColorBlendAttachmentState;
+use vulkano::pipeline::graphics::input_assembly::PrimitiveTopology;
 use vulkano::pipeline::graphics::vertex_input::Vertex as VulkanoVertex;
+use vulkano::pipeline::GraphicsPipeline;
 use vulkano::shader::ShaderModule;
-use crate::core::mutator::timestamp::TimeStamp;
-use crate::core::render::DefaultShaders;
+
+pub type Point = [f32; 2];
+
+pub enum UniformType {
+    Buffer(Vec<u8>),
+}
+
+pub enum ShaderStages {
+    VERTEX,
+    FRAGMENT,
+    BOTH,
+}
+
+pub struct PushConstantData {
+    pub bytes: Vec<u8>,
+    pub stage_flags: ShaderStages,
+}
+
+pub struct UniformData {
+    pub binding: u32,
+    pub data: UniformType,
+}
 
 pub trait Entity {
     /// Returns the time ranges when this entity is visible
@@ -21,6 +47,13 @@ pub trait Entity {
     /// Renders the entity at the given time, returning vertices
     /// This is a pure function - same time always produces same output
     fn render(&self, time: &TimeStamp, fps: u32) -> Vec<RenderedVertex>;
+
+    fn get_push_constants(&self, time: &TimeStamp, fps: u32) -> Option<PushConstantData> {
+        None
+    }
+    fn get_uniforms(&self, time: &TimeStamp, fps: u32) -> Option<UniformData> {
+        None
+    }
 
     /// Get vertex shader (override for custom shaders)
     fn get_vertex_shader(&self, defaults: &DefaultShaders) -> Arc<ShaderModule> {
@@ -38,6 +71,36 @@ pub trait Entity {
             blend: None,
             ..Default::default()
         }
+    }
+
+    /// Returns whether this entity uses GPU-based computation
+    /// If true, render() is not called and GPU generates geometry from push constants/uniforms
+    fn uses_gpu_computation(&self) -> bool {
+        false // Default: CPU-side vertex generation
+    }
+
+    /// Returns vertex count for GPU-computed geometry
+    /// Only called if uses_gpu_computation() returns true
+    fn get_gpu_vertex_count(&self, _time: &TimeStamp, _fps: u32) -> u32 {
+        0
+    }
+
+    /// Returns the primitive topology for this entity
+    fn get_topology(&self) -> PrimitiveTopology {
+        PrimitiveTopology::TriangleList // Default
+    }
+
+    /// Bind resources (push constants, descriptor sets) to the command buffer
+    /// This is called after the pipeline is bound but before drawing
+    /// Entities that need push constants or uniforms should override this method
+    fn bind_resources(
+        &self,
+        _builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+        _pipeline: &Arc<GraphicsPipeline>,
+        _time: &TimeStamp,
+        _fps: u32,
+    ) {
+        // Default: no resources to bind
     }
 }
 

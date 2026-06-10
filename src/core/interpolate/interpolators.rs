@@ -1,6 +1,6 @@
+use crate::core::mutator::timestamp::TimeStamp;
 use std::cmp::PartialEq;
 use std::marker::PhantomData;
-use crate::core::mutator::timestamp::TimeStamp;
 
 /// Trait for interpolation strategies
 ///
@@ -78,14 +78,11 @@ pub trait Interpolate<T: Interpolatable> {
 /// }
 /// ```
 pub trait Interpolatable: Clone {
-    /// Linear interpolation between self and other
+    /// Linear interpolation betwexen self and other
     ///
     /// # Arguments
     /// * `other` - The target value to interpolate towards
-    /// * `t` - Progress value, typically in range [0.0, 1.0]
-    ///   - t=0.0 returns self
-    ///   - t=1.0 returns other
-    ///   - t=0.5 returns the midpoint
+    /// * `t` - [0.0, 1.0]
     fn lerp(&self, other: &Self, t: f32) -> Self;
 }
 
@@ -98,10 +95,7 @@ impl Interpolatable for f32 {
 
 impl Interpolatable for [f32; 2] {
     fn lerp(&self, other: &Self, t: f32) -> Self {
-        [
-            self[0].lerp(&other[0], t),
-            self[1].lerp(&other[1], t),
-        ]
+        [self[0].lerp(&other[0], t), self[1].lerp(&other[1], t)]
     }
 }
 
@@ -113,6 +107,12 @@ impl Interpolatable for [f32; 4] {
             self[2].lerp(&other[2], t),
             self[3].lerp(&other[3], t),
         ]
+    }
+}
+
+impl<T: Interpolatable> From<T> for Interpolator<T> {
+    fn from(value: T) -> Self {
+        Interpolator::Constant(value)
     }
 }
 
@@ -195,8 +195,7 @@ impl<T: Interpolatable> InterpolatorBuilder<T, NeedsTime> {
                 end,
                 easing: self.easing.unwrap_or(EasingFunction::Linear),
             }
-        }
-        else if num_controls == 2 {
+        } else if num_controls == 2 {
             // Exactly 2 control points: use optimized Cubic variant
             let mut controls = self.control_points;
             let p2 = controls.pop().unwrap();
@@ -209,8 +208,7 @@ impl<T: Interpolatable> InterpolatorBuilder<T, NeedsTime> {
                 start,
                 end,
             }
-        }
-        else {
+        } else {
             // Any other number: use general Bezier
             let mut points = Vec::with_capacity(num_controls + 2);
             points.push(self.from);
@@ -220,7 +218,6 @@ impl<T: Interpolatable> InterpolatorBuilder<T, NeedsTime> {
         }
     }
 }
-
 
 /// Data-driven interpolator for any value over time
 ///
@@ -249,10 +246,10 @@ pub enum Interpolator<T: Interpolatable> {
     /// Cubic Bezier interpolation with two control points
     /// Provides smooth curves with more control than linear easing
     Cubic {
-        p0: T,  // Start point
-        p1: T,  // First control point
-        p2: T,  // Second control point
-        p3: T,  // End point
+        p0: T, // Start point
+        p1: T, // First control point
+        p2: T, // Second control point
+        p3: T, // End point
         start: TimeStamp,
         end: TimeStamp,
     },
@@ -269,7 +266,10 @@ pub enum Interpolator<T: Interpolatable> {
 /// De Casteljau's algorithm for evaluating Bezier curves of any degree
 /// Works with any Interpolatable type by using only lerp operations
 fn de_casteljau<T: Interpolatable>(points: &[T], t: f32) -> T {
-    debug_assert!(!points.is_empty(), "Bezier curve requires at least one point");
+    debug_assert!(
+        !points.is_empty(),
+        "Bezier curve requires at least one point"
+    );
 
     if points.len() == 1 {
         return points[0].clone();
@@ -278,15 +278,11 @@ fn de_casteljau<T: Interpolatable>(points: &[T], t: f32) -> T {
     let mut working = points.to_vec();
 
     while working.len() > 1 {
-        working = working.windows(2)
-            .map(|w| w[0].lerp(&w[1], t))
-            .collect();
+        working = working.windows(2).map(|w| w[0].lerp(&w[1], t)).collect();
     }
 
     working.remove(0)
 }
-
-
 
 impl<T: Interpolatable> Interpolator<T> {
     /// Evaluate the interpolator at a given time
@@ -294,7 +290,13 @@ impl<T: Interpolatable> Interpolator<T> {
         match self {
             Interpolator::Constant(value) => value.clone(),
 
-            Interpolator::Linear { from, to, start, end, easing } => {
+            Interpolator::Linear {
+                from,
+                to,
+                start,
+                end,
+                easing,
+            } => {
                 let progress = Self::compute_progress(time, start, end, fps);
                 let eased = easing.ease(progress);
                 from.lerp(to, eased)
@@ -338,7 +340,14 @@ impl<T: Interpolatable> Interpolator<T> {
                 start_val.lerp(end_val, eased)
             }
 
-            Interpolator::Cubic { p0, p1, p2, p3, start, end } => {
+            Interpolator::Cubic {
+                p0,
+                p1,
+                p2,
+                p3,
+                start,
+                end,
+            } => {
                 let t = Self::compute_progress(time, start, end, fps);
                 // De Casteljau's algorithm: recursive linear interpolation
                 // This only uses lerp(), so it works for ANY Interpolatable type!
@@ -456,7 +465,7 @@ impl<T: Interpolatable> Interpolator<T> {
         Interpolator::Bezier { points, start, end }
     }
 
-    pub fn from(value: T) -> InterpolatorBuilder<T, NeedsTo> {
+    pub fn interp_from(value: T) -> InterpolatorBuilder<T, NeedsTo> {
         InterpolatorBuilder {
             from: value,
             to_: None,
@@ -477,8 +486,8 @@ impl<T: Interpolatable> Interpolate<T> for Interpolator<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::ts;
     use super::*;
+    use crate::ts;
 
     #[test]
     fn test_lerp_f32() {
@@ -504,12 +513,7 @@ mod tests {
 
     #[test]
     fn test_linear_interpolator() {
-        let interp = Interpolator::linear(
-            0.0_f32,
-            10.0,
-            ts!(0),
-            ts!(1),
-        );
+        let interp = Interpolator::linear(0.0_f32, 10.0, ts!(0), ts!(1));
 
         // At start
         assert_eq!(interp.at(&ts!(0), 24), 0.0);
@@ -524,10 +528,10 @@ mod tests {
     fn test_cubic_interpolator() {
         // Create a cubic interpolation from 0 to 10 with control points
         let interp = Interpolator::cubic(
-            0.0_f32,   // p0: start at 0
-            3.0,       // p1: pull upward early
-            7.0,       // p2: pull upward late
-            10.0,      // p3: end at 10
+            0.0_f32, // p0: start at 0
+            3.0,     // p1: pull upward early
+            7.0,     // p2: pull upward late
+            10.0,    // p3: end at 10
             ts!(0),
             ts!(1),
         );
@@ -551,10 +555,10 @@ mod tests {
     fn test_cubic_works_with_arrays() {
         // Demonstrate that cubic works with ANY Interpolatable type (like colors!)
         let color_curve = Interpolator::cubic(
-            [1.0, 0.0, 0.0, 1.0],  // Red
-            [1.0, 0.5, 0.0, 1.0],  // Orange (control)
-            [0.5, 0.0, 1.0, 1.0],  // Purple (control)
-            [0.0, 0.0, 1.0, 1.0],  // Blue
+            [1.0, 0.0, 0.0, 1.0], // Red
+            [1.0, 0.5, 0.0, 1.0], // Orange (control)
+            [0.5, 0.0, 1.0, 1.0], // Purple (control)
+            [0.0, 0.0, 1.0, 1.0], // Blue
             ts!(0),
             ts!(1),
         );
@@ -562,7 +566,7 @@ mod tests {
         let start_color = color_curve.at(&ts!(0), 24);
         assert_eq!(start_color, [1.0, 0.0, 0.0, 1.0]);
 
-        let end_color = color_curve.at(&ts!(1), 24);  // at end, not start
+        let end_color = color_curve.at(&ts!(1), 24); // at end, not start
         assert_eq!(end_color, [0.0, 0.0, 1.0, 1.0]);
 
         // Middle should be some blend influenced by the orange/purple controls
@@ -603,12 +607,7 @@ mod tests {
     #[test]
     fn test_both_approaches_are_compatible() {
         // Built-in enum approach (cloneable)
-        let builtin = Interpolator::linear(
-            0.0_f32,
-            10.0,
-            ts!(0),
-            ts!(1),
-        );
+        let builtin = Interpolator::linear(0.0_f32, 10.0, ts!(0), ts!(1));
 
         // Custom trait approach (flexible)
         struct DoubleValue;
@@ -621,7 +620,7 @@ mod tests {
         let custom = DoubleValue;
 
         // Both implement Interpolate trait
-        let builtin_result = builtin.at(&ts!(0, 12), 24);  // midpoint
+        let builtin_result = builtin.at(&ts!(0, 12), 24); // midpoint
         let custom_result = custom.at(&ts!(0, 12), 24);
 
         assert!((builtin_result - 5.0).abs() < 0.01);
@@ -635,7 +634,7 @@ mod tests {
     // Builder API tests
     #[test]
     fn test_builder_linear() {
-        let interp = Interpolator::from(0.0_f32)
+        let interp = Interpolator::interp_from(0.0_f32)
             .to(10.0)
             .over(ts!(0), TimeStamp::new(0, 1, 0));
 
@@ -648,7 +647,7 @@ mod tests {
 
     #[test]
     fn test_builder_with_easing() {
-        let interp = Interpolator::from(0.0_f32)
+        let interp = Interpolator::interp_from(0.0_f32)
             .to(10.0)
             .ease(EasingFunction::EaseInOut)
             .over(ts!(0), ts!(1));
@@ -666,10 +665,10 @@ mod tests {
     #[test]
     fn test_builder_cubic_through() {
         // Chained .through() calls for cubic (2 control points)
-        let interp = Interpolator::from([1.0, 0.0, 0.0, 1.0])  // Red
-            .to([0.0, 0.0, 1.0, 1.0])                          // Blue
-            .through([1.0, 0.5, 0.0, 1.0])                     // Orange (control 1)
-            .through([0.5, 0.0, 1.0, 1.0])                     // Purple (control 2)
+        let interp = Interpolator::interp_from([1.0, 0.0, 0.0, 1.0]) // Red
+            .to([0.0, 0.0, 1.0, 1.0]) // Blue
+            .through([1.0, 0.5, 0.0, 1.0]) // Orange (control 1)
+            .through([0.5, 0.0, 1.0, 1.0]) // Purple (control 2)
             .over(ts!(0), ts!(1));
 
         // Endpoints should match
@@ -688,7 +687,7 @@ mod tests {
     #[test]
     fn test_builder_with_arrays() {
         // Verify builder works with different Interpolatable types
-        let color_interp = Interpolator::from([0.0, 0.0, 0.0, 1.0])
+        let color_interp = Interpolator::interp_from([0.0, 0.0, 0.0, 1.0])
             .to([1.0, 1.0, 1.0, 1.0])
             .over(ts!(0), ts!(2));
 
@@ -702,9 +701,9 @@ mod tests {
     #[test]
     fn test_bezier_quadratic_one_control_point() {
         // Quadratic Bezier (3 points total: start + 1 control + end)
-        let interp = Interpolator::from(0.0_f32)
+        let interp = Interpolator::interp_from(0.0_f32)
             .to(10.0)
-            .through(5.0)  // single control point
+            .through(5.0) // single control point
             .over(ts!(0), ts!(1));
 
         // Should be a Bezier variant (not Cubic, since we have 1 control point)
@@ -722,7 +721,7 @@ mod tests {
     #[test]
     fn test_bezier_quartic_three_control_points() {
         // Quartic Bezier (5 points total: start + 3 controls + end)
-        let interp = Interpolator::from(0.0_f32)
+        let interp = Interpolator::interp_from(0.0_f32)
             .to(10.0)
             .through(2.0)
             .through(5.0)
@@ -744,7 +743,7 @@ mod tests {
     #[test]
     fn test_bezier_constructor() {
         // Direct constructor for n-point Bezier
-        let points = vec![0.0_f32, 2.0, 5.0, 8.0, 10.0];  // 5 points
+        let points = vec![0.0_f32, 2.0, 5.0, 8.0, 10.0]; // 5 points
         let interp = Interpolator::bezier(points, ts!(0), ts!(1));
 
         assert!((interp.at(&ts!(0), 24) - 0.0).abs() < 0.01);
@@ -772,7 +771,10 @@ mod tests {
                 assert!(
                     (cubic_val[i] - bezier_val[i]).abs() < 0.0001,
                     "Mismatch at frame {}, component {}: cubic={} bezier={}",
-                    frame, i, cubic_val[i], bezier_val[i]
+                    frame,
+                    i,
+                    cubic_val[i],
+                    bezier_val[i]
                 );
             }
         }
@@ -781,7 +783,7 @@ mod tests {
     #[test]
     fn test_builder_two_controls_uses_cubic() {
         // Verify that exactly 2 control points produces optimized Cubic variant
-        let interp = Interpolator::from(0.0_f32)
+        let interp = Interpolator::interp_from(0.0_f32)
             .to(10.0)
             .through(3.0)
             .through(7.0)

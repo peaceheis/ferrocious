@@ -2,9 +2,9 @@
 
 ## Introduction
 
-Ferrocious is a general-purpose, code-based animation engine. It is meant to be error-free, expressive, easy, and efficient.
+Ferrocious is a general-purpose, code-based animation engine. It is meant to be error-free, expressive, easy, extesible and efficient.
 It was born out of the desire to create imaginative geometric animations with code,
-and the failure of tools to be able to do so. Here are the priorities of its design.
+and the lack of tools that empower it. Here are the priorities of its design.
 
 ## Design principles
 

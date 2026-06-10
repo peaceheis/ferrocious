@@ -1,3 +1,1 @@
-struct GraphicsPassContext {
-    
-}
+struct GraphicsPassContext {}

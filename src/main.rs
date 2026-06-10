@@ -4,11 +4,12 @@ use ferrocious::core::geometry::Transform;
 use ferrocious::core::interpolate::Interpolator;
 use ferrocious::core::mutator::timestamp::TimeStamp;
 #[cfg(feature = "stl")]
-use ferrocious::stl::entities::Polygon;
+use ferrocious::stl::entities::{Polygon, TrigLine};
+#[cfg(feature = "stl")]
+use ferrocious::stl::shaders::colors::*;
+use ferrocious::ts;
 use std::f32::consts::PI;
 use std::time::Instant;
-use ferrocious::core::interpolate::EasingFunction::EaseInOut;
-use ferrocious::stl::shaders::colors::*;
 
 fn main() {
     let now = Instant::now();
@@ -16,11 +17,11 @@ fn main() {
 
     #[cfg(feature = "stl")]
     {
-        let end = TimeStamp::new(0, 10, 0);
-        let canvas = PrideCanvas::new();
-        unsafe { canvas.save("output", "animation.mp4", end) }
+        let end = TimeStamp::new(0, 5, 0);
+        let canvas = SineWaveCanvas::new();
+        unsafe { canvas.save("output", "sine_wave.mp4", end) }
     }
-    
+
     let elapsed = now.elapsed();
     println!("Generated : {:.2?}", elapsed);
 
@@ -33,7 +34,7 @@ fn main() {
 
 #[cfg(feature = "stl")]
 struct DemoCanvas {
-    entities: Vec<Polygon>,
+    entities: Vec<Box<dyn Entity>>,
 }
 
 #[cfg(feature = "stl")]
@@ -105,9 +106,7 @@ impl DemoCanvas {
                             ),
                         )
                         .with_transform(Interpolator::ease_in_out(
-                            Transform::new()
-                                .with_center([x, y])
-                                .with_uniform_scale(0.5),
+                            Transform::new().with_center([x, y]).with_uniform_scale(0.5),
                             Transform::new()
                                 .with_center([x, y])
                                 .with_rotation(rotation_dir * PI * 2.0)
@@ -154,9 +153,7 @@ impl DemoCanvas {
                             ),
                         )
                         .with_transform(Interpolator::ease_in_out(
-                            Transform::new()
-                                .with_center([x, y])
-                                .with_uniform_scale(1.0),
+                            Transform::new().with_center([x, y]).with_uniform_scale(1.0),
                             Transform::new()
                                 .with_center([x, y])
                                 .with_rotation(-rotation_dir * PI * 2.0 * num_rotations)
@@ -167,7 +164,7 @@ impl DemoCanvas {
                     }
                 };
 
-                entities.push(polygon);
+                entities.push(Box::new(polygon) as Box<dyn Entity>);
             }
         }
 
@@ -177,25 +174,37 @@ impl DemoCanvas {
     }
 }
 
-
 #[cfg(feature = "stl")]
 struct PrideCanvas {
-    entities: Vec<Polygon>,
+    entities: Vec<Box<dyn Entity>>,
 }
 
 #[cfg(feature = "stl")]
 impl PrideCanvas {
-    fn new() -> Self {  
+    fn new() -> Self {
         let colors = vec![RED, ORANGE, YELLOW];
-        let mut entities = colors.iter().enumerate().map(
-            |(i, iter)| {
-                Polygon::rectangle([-1.0, (i as f32 + 1.0)/3f32 -(1.0/6.0) - 1.0], 2.0, 1.0/3.0, iter.clone())
-                    .with_transform(Interpolator::linear(Transform::new().with_position([-1.0, (i as f32 + 1.0)/3f32 -(1.0/6.0) - 1.0]), Transform::new().with_position([1.0, (i as f32 + 1.0)/3f32 -(1.0/6.0) - 1.0]), TimeStamp::new(0, ((i / 6) * 5) as u32, 0), TimeStamp::new(0, 10, 0)))
-            }
-        ).collect::<Vec<_>>();
+        let mut entities = colors
+            .iter()
+            .enumerate()
+            .map(|(i, iter)| {
+                Box::new(Polygon::rectangle(
+                    [-1.0, (i as f32 + 1.0) / 3f32 - (1.0 / 6.0) - 1.0],
+                    2.0,
+                    1.0 / 3.0,
+                    iter.clone(),
+                )
+                .with_transform(Interpolator::linear(
+                    Transform::new()
+                        .with_position([-1.0, (i as f32 + 1.0) / 3f32 - (1.0 / 6.0) - 1.0]),
+                    Transform::new()
+                        .with_position([1.0, (i as f32 + 1.0) / 3f32 - (1.0 / 6.0) - 1.0]),
+                    TimeStamp::new(0, ((i / 6) * 5) as u32, 0),
+                    TimeStamp::new(0, 10, 0),
+                ))) as Box<dyn Entity>
+            })
+            .collect::<Vec<_>>();
         Self { entities }
     }
-    
 }
 
 #[cfg(feature = "stl")]
@@ -204,19 +213,18 @@ impl Canvas for PrideCanvas {
         // No longer needed - entities are defined in new()
     }
 
-    fn get_width_and_height(& self) -> (u32, u32) {
+    fn get_width_and_height(&self) -> (u32, u32) {
         (640, 640)
     }
 
     fn get_fps(&self) -> u32 {
-        24
+        60
     }
 
-    fn get_entities(&self) -> Vec<&impl Entity> {
-        self.entities.iter().collect()
+    fn get_entities(&self) -> &Vec<Box<dyn Entity>> {
+        &self.entities
     }
 
-    
     fn get_background_color(&self, _current_frame: &TimeStamp) -> [u8; 4] {
         [1u8, 1u8, 1u8, 1u8]
     }
@@ -228,7 +236,7 @@ impl Canvas for DemoCanvas {
         // No longer needed - entities are defined in new()
     }
 
-    fn get_width_and_height(& self) -> (u32, u32) {
+    fn get_width_and_height(&self) -> (u32, u32) {
         (1080, 1380)
     }
 
@@ -236,12 +244,78 @@ impl Canvas for DemoCanvas {
         48
     }
 
-    fn get_entities(&self) -> Vec<&impl Entity> {
-        self.entities.iter().collect()
+    fn get_entities(&self) -> &Vec<Box<dyn Entity>> {
+        &self.entities
     }
 
-    
     fn get_background_color(&self, _current_frame: &TimeStamp) -> [u8; 4] {
         [0u8, 0u8, 0u8, 0u8] // Dark blue-gray background
+    }
+}
+
+#[cfg(feature = "stl")]
+struct SineWaveCanvas {
+    entities: Vec<Box<dyn Entity>>,
+}
+
+#[cfg(feature = "stl")]
+impl SineWaveCanvas {
+    fn new() -> Self {
+        // Create a simple sine wave
+        let sine_wave = TrigLine::sin()
+            .start((-2.0 * PI).into())
+            .end((16.0 * PI).into())
+            .amplitude(0.5.into())
+            .start_point(Interpolator::Cubic {
+                p0: [0., 0.],
+                p1: [-0.1, 0.],
+                p2: [-0.3, 0.],
+                p3: [0., 0.],
+                start: ts!(0),
+                end: ts!(5),
+            })
+            .frequency(Interpolator::Cubic {
+                p0: 5.,
+                p1: 8.,
+                p2: 10.,
+                p3: 5.,
+                start: ts!(0),
+                end: ts!(5),
+            })
+            .phase(Interpolator::Cubic {
+                p0: 0.,
+                p1: 5. * PI,
+                p2: 7. * PI,
+                p3: 8. * PI,
+                start: ts!(0),
+                end: ts!(5),
+            })
+            .thickness(0.01.into())
+            .build();
+        
+        let entities = vec![Box::new(sine_wave) as Box<dyn Entity>];
+
+        Self { entities }
+    }
+}
+
+#[cfg(feature = "stl")]
+impl Canvas for SineWaveCanvas {
+    fn construct(&self) {}
+
+    fn get_width_and_height(&self) -> (u32, u32) {
+        (1280, 720)
+    }
+
+    fn get_fps(&self) -> u32 {
+        24
+    }
+
+    fn get_entities(&self) -> &Vec<Box<dyn Entity>> {
+        &self.entities
+    }
+
+    fn get_background_color(&self, _current_frame: &TimeStamp) -> [u8; 4] {
+        [20, 20, 30, 255] // Dark blue background
     }
 }

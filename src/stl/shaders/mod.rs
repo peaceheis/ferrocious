@@ -1,4 +1,5 @@
 pub mod colors;
+pub mod trig_line;
 
 mod simple_vertex_shader {
     vulkano_shaders::shader! {

@@ -29,7 +29,7 @@ impl TimeStamp {
         TimeStamp {
             minute: minute.unwrap_or(0),
             second: second.unwrap_or(0),
-            frame: frame.unwrap_or(0),
+            frame: frame.unwrap_or(1),
         }
     }
 
@@ -64,7 +64,6 @@ impl TimeStamp {
         }
     }
 }
-
 
 impl PartialOrd for TimeStamp {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -111,7 +110,6 @@ impl fmt::Display for TimeStamp {
         )
     }
 }
-
 
 #[macro_export]
 macro_rules! ts {

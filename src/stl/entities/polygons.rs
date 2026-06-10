@@ -7,7 +7,7 @@
 // use std::ops::Deref;
 // use std::sync::Arc;
 // use vulkano::shader::ShaderModule;
-// 
+//
 // pub struct NGon {
 //     num_points: usize,
 //     start_frame: TimeStamp,
@@ -16,7 +16,7 @@
 //     attributes: Vec<Box<dyn Attribute<AttributeType = ()>>>,
 //     mutators: Vec<Box<dyn Mutator<AttributeType = ()>>>,
 // }
-// 
+//
 // impl NGon {
 //     fn new(num_points: usize, start_frame: TimeStamp, end_frame: TimeStamp) {
 //         Self {
@@ -28,7 +28,7 @@
 //         };
 //     }
 // }
-// 
+//
 // impl Entity for NGon {
 //     fn tick(&mut self, frame: &TimeStamp) -> Vec<RenderedVertex> {
 //         self.positions.clone()
