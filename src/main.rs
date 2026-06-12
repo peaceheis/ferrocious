@@ -52,8 +52,8 @@ impl TestCanvas {
                 ts!(5),
             ),
             Interpolator::linear([0., 0.], [1., 1.], ts!(0), ts!(5)),
-            Option::from(Interpolator::linear(5., 20., ts!(0, 0), ts!(5, 0))),
-            Option::from(Interpolator::linear(PURPLE, WHITE, ts!(0, 0), ts!(5, 0))),
+            Option::from(Interpolator::linear(5., 20., ts!(0, 0), ts!(5))),
+            Option::from(Interpolator::linear(PURPLE, WHITE, ts!(0, 0), ts!(5))),
         );
 
         entities.push(Box::new(line) as Box<dyn Entity>);
