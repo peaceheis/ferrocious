@@ -48,7 +48,12 @@ pub trait Entity {
     /// This is a pure function - same time always produces same output
     fn render(&self, time: &TimeStamp, fps: u32, viewport: [u32; 2]) -> Vec<RenderedVertex>;
 
-    fn get_push_constants(&self, time: &TimeStamp, fps: u32, viewport: [u32; 2]) -> Option<PushConstantData> {
+    fn get_push_constants(
+        &self,
+        time: &TimeStamp,
+        fps: u32,
+        viewport: [u32; 2],
+    ) -> Option<PushConstantData> {
         None
     }
     fn get_uniforms(&self, time: &TimeStamp, fps: u32, viewport: [u32; 2]) -> Option<UniformData> {

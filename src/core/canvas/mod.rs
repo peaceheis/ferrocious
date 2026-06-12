@@ -18,7 +18,7 @@ pub trait Canvas {
     fn construct(&self);
     fn get_width_and_height(&self) -> (u32, u32);
     fn get_fps(&self) -> u32;
-    
+
     fn get_entities(&self) -> &Vec<Box<dyn Entity>>;
     //fn get_background(&self, current_frame: &TimeStamp) -> Array3<u8>;
     fn get_background_color(&self, current_frame: &TimeStamp) -> [u8; 4];
@@ -63,6 +63,7 @@ pub trait Canvas {
         };
 
         while current_frame < end {
+            let msaa_image = render_context.init_msaa_image(WIDTH, HEIGHT);
             image = render_context.init_image(WIDTH, HEIGHT);
 
             let mut builder = AutoCommandBufferBuilder::primary(
@@ -78,9 +79,9 @@ pub trait Canvas {
                         clear_values: vec![Some(ClearValue::from(
                             self.get_background_color(&current_frame)
                                 .map(|x| x as f32 / 255.0),
-                        ))],
+                        )), None],
                         ..RenderPassBeginInfo::framebuffer(
-                            render_context.init_framebuffer(image.clone()),
+                            render_context.init_framebuffer(msaa_image.clone(), image.clone()),
                         )
                     },
                     SubpassBeginInfo {
@@ -95,7 +96,8 @@ pub trait Canvas {
 
             // build out buffer and attachments that can be shared by entities?
 
-            for entity in self.get_entities()
+            for entity in self
+                .get_entities()
                 .iter()
                 .filter(|entity| current_frame.matches_range(&entity.active_range()))
             {
@@ -126,20 +128,29 @@ pub trait Canvas {
                         };
                         vertex_count as usize
                     ];
-                    builder
-                        .bind_vertex_buffers(0, render_context.build_vertex_buffer(dummy_vertices))
-                        .unwrap()
-                        .draw(vertex_count, 1, 0, 0)
-                        .unwrap();
+                    if let Some(vertex_buffer) = render_context.build_vertex_buffer(dummy_vertices) {
+                        builder
+                            .bind_vertex_buffers(0, vertex_buffer)
+                            .unwrap()
+                            .draw(vertex_count, 1, 0, 0)
+                            .unwrap();
+                    } else {
+                        continue;
+                    }
+
                 } else {
                     // CPU genates vertices (existing path)
                     let vertices = entity.render(&current_frame, FPS, [WIDTH, HEIGHT]);
                     let num_vertices = vertices.len();
-                    builder
-                        .bind_vertex_buffers(0, render_context.build_vertex_buffer(vertices))
-                        .unwrap()
-                        .draw(num_vertices as u32, 1, 0, 0)
-                        .unwrap();
+                    if let Some(vertex_buffer) = render_context.build_vertex_buffer(vertices) {
+                        builder
+                            .bind_vertex_buffers(0, vertex_buffer)
+                            .unwrap()
+                            .draw(num_vertices as u32, 1, 0, 0)
+                            .unwrap();
+                    } else {
+                        continue;
+                    }
                 }
             }
             builder.end_render_pass(SubpassEndInfo::default()).unwrap();

@@ -75,7 +75,7 @@ pub struct LinearLine {
     pub start: Interpolator<Point>,
     pub end: Interpolator<Point>,
     pub thickness: Interpolator<f32>,
-    pub color: Interpolator<[f32; 4]>
+    pub color: Interpolator<[f32; 4]>,
 }
 
 impl LinearLine {
@@ -83,13 +83,13 @@ impl LinearLine {
         start: Interpolator<Point>,
         end: Interpolator<Point>,
         thickness: Option<Interpolator<f32>>,
-        color: Option<Interpolator<[f32; 4]>>
+        color: Option<Interpolator<[f32; 4]>>,
     ) -> Self {
         Self {
             start,
             end,
             thickness: thickness.unwrap_or(DEFAULT_THICKNESS.into()),
-            color: color.unwrap_or(DEFAULT_COLOR.into())
+            color: color.unwrap_or(DEFAULT_COLOR.into()),
         }
     }
 }

@@ -3,6 +3,7 @@ use ferrocious::core::entity::Entity;
 use ferrocious::core::geometry::Transform;
 use ferrocious::core::interpolate::{EasingFunction, Interpolatable, Interpolator};
 use ferrocious::core::mutator::timestamp::TimeStamp;
+use ferrocious::stl::entities::lines::LinearLine;
 #[cfg(feature = "stl")]
 use ferrocious::stl::entities::{Polygon, TrigLine};
 #[cfg(feature = "stl")]
@@ -10,7 +11,6 @@ use ferrocious::stl::shaders::colors::*;
 use ferrocious::ts;
 use std::f32::consts::PI;
 use std::time::Instant;
-use ferrocious::stl::entities::lines::LinearLine;
 
 fn main() {
     let now = Instant::now();
@@ -43,22 +43,27 @@ impl TestCanvas {
     fn new() -> Self {
         let mut entities = Vec::new();
         let line = LinearLine::new(
-            Interpolator::linear([-1., -1.], [-1., 0.], ts!(0),ts!(5)),
-            Interpolator::linear([0., 0.], [1., 1.], ts!(0),ts!(5)),
+            Interpolator::cubic(
+                [-1., -1.],
+                [-1., 0.],
+                [-1., 0.5],
+                [-1.5, 1.],
+                ts!(0),
+                ts!(5),
+            ),
+            Interpolator::linear([0., 0.], [1., 1.], ts!(0), ts!(5)),
             Option::from(Interpolator::linear(5., 20., ts!(0, 0), ts!(5, 0))),
-            Option::from(Interpolator::linear(PURPLE, WHITE, ts!(0, 0), ts!(5, 0))),);
+            Option::from(Interpolator::linear(PURPLE, WHITE, ts!(0, 0), ts!(5, 0))),
+        );
 
         entities.push(Box::new(line) as Box<dyn Entity>);
-
 
         TestCanvas { entities }
     }
 }
 
 impl Canvas for TestCanvas {
-    fn construct(&self) {
-
-    }
+    fn construct(&self) {}
 
     fn get_width_and_height(&self) -> (u32, u32) {
         (500u32, 700u32)

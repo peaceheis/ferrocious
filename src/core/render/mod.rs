@@ -18,7 +18,7 @@ use vulkano::device::physical::PhysicalDevice;
 use vulkano::device::{Device, DeviceCreateInfo, Queue, QueueCreateInfo, QueueFlags};
 use vulkano::format::{ClearColorValue, Format};
 use vulkano::image::view::ImageView;
-use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage};
+use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage, SampleCount};
 use vulkano::instance::{Instance, InstanceCreateFlags, InstanceCreateInfo};
 use vulkano::memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator};
 use vulkano::pipeline::graphics::color_blend::{ColorBlendAttachmentState, ColorBlendState};
@@ -34,7 +34,7 @@ use vulkano::pipeline::{GraphicsPipeline, PipelineLayout, PipelineShaderStageCre
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::ShaderModule;
 use vulkano::sync::GpuFuture;
-use vulkano::{sync, VulkanLibrary};
+use vulkano::{sync, NonExhaustive, VulkanLibrary};
 
 mod GraphicsPassContext;
 pub mod default_shaders;
@@ -186,6 +186,25 @@ impl RenderContext {
         )
     }
 
+    pub fn init_msaa_image(&self, width: u32, height: u32) -> Arc<Image> {
+        Image::new(
+            self.memory_allocator.clone(),
+            ImageCreateInfo {
+                image_type: ImageType::Dim2d,
+                format: Format::R8G8B8A8_UNORM,
+                extent: [width, height, 1],
+                usage: ImageUsage::COLOR_ATTACHMENT | ImageUsage::TRANSIENT_ATTACHMENT,
+                samples: SampleCount::Sample4, // TODO: here's hardcoding too
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE,
+                ..Default::default()
+            },
+        )
+        .unwrap()
+    }
+
     pub fn init_image(&self, width: u32, height: u32) -> Arc<Image> {
         Image::new(
             self.memory_allocator.clone(),
@@ -260,27 +279,35 @@ impl RenderContext {
     fn init_render_pass(device: Arc<Device>) -> Arc<vulkano::render_pass::RenderPass> {
         vulkano::single_pass_renderpass!(device,
             attachments: {
-                color: {
-                    format: Format::R8G8B8A8_UNORM,
-                    samples: 1,
-                    load_op: Clear,
-                    store_op: Store,
-                },
+                msaa_color: {
+                format: Format::R8G8B8A8_UNORM,
+                samples: 4, // TODO: lets make this a constant somewhere
+                load_op: Clear,
+                store_op: DontCare, // No need to keep after the pass
+                    },
+            resolve_color: {
+                format: Format::R8G8B8A8_UNORM,
+                samples: 1,
+                load_op: DontCare,
+                store_op: Store,
+            },
             },
             pass: {
-                color: [color],
+                color: [msaa_color],
+                color_resolve: [resolve_color],
                 depth_stencil: {},
             },
         )
         .unwrap()
     }
 
-    pub fn init_framebuffer(&self, image: Arc<Image>) -> Arc<Framebuffer> {
+    pub fn init_framebuffer(&self, msaa_image: Arc<Image>, image: Arc<Image>) -> Arc<Framebuffer> {
+        let msaa_view = ImageView::new_default(msaa_image).unwrap();
         let view = ImageView::new_default(image).unwrap();
         Framebuffer::new(
             self.render_pass.clone(),
             FramebufferCreateInfo {
-                attachments: vec![view],
+                attachments: vec![msaa_view, view],
                 ..Default::default()
             },
         )
@@ -290,14 +317,16 @@ impl RenderContext {
     pub fn build_vertex_buffer(
         &self,
         vertices: Vec<RenderedVertex>,
-    ) -> Subbuffer<[RenderedVertex]> {
+    ) -> Option<Subbuffer<[RenderedVertex]>> {
         // Ensure we have vertices to work with
         if vertices.is_empty() {
-            panic!("Cannot create buffer from empty vertex vector");
+            // TODO - lets do better logging, and also how much can we prevent this?
+            println!("Cannot create buffer from empty vertex vector, Skipping render");
+            return None
         }
 
         // Try with more permissive memory type filter first
-        Buffer::from_iter(
+        Some(Buffer::from_iter(
             self.memory_allocator.clone(),
             BufferCreateInfo {
                 usage: BufferUsage::VERTEX_BUFFER,
@@ -311,7 +340,7 @@ impl RenderContext {
         )
         .unwrap_or_else(|e| {
             panic!("Failed to create vertex buffer: {:?}. This might indicate insufficient memory or invalid device state.", e)
-        })
+        }))
     }
 
     pub fn assemble_pipeline(
@@ -367,7 +396,10 @@ impl RenderContext {
                     ..Default::default()
                 }),
                 rasterization_state: Some(RasterizationState::default()),
-                multisample_state: Some(MultisampleState::default()),
+                multisample_state: Some(MultisampleState {
+                    rasterization_samples: subpass.num_samples().unwrap(),
+                    ..Default::default()
+                }),
                 color_blend_state: Some(ColorBlendState::with_attachment_states(
                     subpass.num_color_attachments(),
                     ColorBlendAttachmentState::default(),
