@@ -78,6 +78,7 @@ impl Canvas for TestCanvas {
     }
 
     fn get_background_color(&self, current_frame: &TimeStamp) -> [u8; 4] {
-        [0, 0, 0, 255]
+        // TODO: should this be float?
+        [0u8; 4]
     }
 }
