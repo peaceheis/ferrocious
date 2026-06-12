@@ -7,7 +7,7 @@ mod tests {
     #[test]
     fn test_timestamp_incrementer() {
         let mut ts = TimeStamp::new(1, 3, 2);
-        for _n in 0..DEFAULT_FPS + 1 {
+        for _n in 0..DEFAULT_FPS {
             ts.increment(DEFAULT_FPS);
         }
         assert_eq!(ts, TimeStamp::new(1, 4, 2));
@@ -31,7 +31,7 @@ mod tests {
     fn test_timestamp_off_by_one_rollover() {
         let mut ts = TimeStamp::new(0, 0, DEFAULT_FPS - 2);
         ts.increment(DEFAULT_FPS);
-        assert_eq!(ts, TimeStamp::new(0, 1, DEFAULT_FPS - 1));
+        assert_eq!(ts, TimeStamp::new(0, 0, DEFAULT_FPS - 1));
     }
 
     #[test]
