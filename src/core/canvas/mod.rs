@@ -76,10 +76,13 @@ pub trait Canvas {
             builder
                 .begin_render_pass(
                     RenderPassBeginInfo {
-                        clear_values: vec![Some(ClearValue::from(
-                            self.get_background_color(&current_frame)
-                                .map(|x| x as f32 / 255.0),
-                        )), None],
+                        clear_values: vec![
+                            Some(ClearValue::from(
+                                self.get_background_color(&current_frame)
+                                    .map(|x| x as f32 / 255.0),
+                            )),
+                            None,
+                        ],
                         ..RenderPassBeginInfo::framebuffer(
                             render_context.init_framebuffer(msaa_image.clone(), image.clone()),
                         )
@@ -128,7 +131,8 @@ pub trait Canvas {
                         };
                         vertex_count as usize
                     ];
-                    if let Some(vertex_buffer) = render_context.build_vertex_buffer(dummy_vertices) {
+                    if let Some(vertex_buffer) = render_context.build_vertex_buffer(dummy_vertices)
+                    {
                         builder
                             .bind_vertex_buffers(0, vertex_buffer)
                             .unwrap()
@@ -137,7 +141,6 @@ pub trait Canvas {
                     } else {
                         continue;
                     }
-
                 } else {
                     // CPU genates vertices (existing path)
                     let vertices = entity.render(&current_frame, FPS, [WIDTH, HEIGHT]);

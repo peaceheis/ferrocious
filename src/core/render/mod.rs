@@ -322,7 +322,7 @@ impl RenderContext {
         if vertices.is_empty() {
             // TODO - lets do better logging, and also how much can we prevent this?
             println!("Cannot create buffer from empty vertex vector, Skipping render");
-            return None
+            return None;
         }
 
         // Try with more permissive memory type filter first
