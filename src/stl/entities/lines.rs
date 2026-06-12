@@ -1,4 +1,5 @@
 use crate::core::entity::{Entity, Point, PushConstantData, RenderedVertex, UniformData};
+use crate::core::geometry::create_stroke;
 use crate::core::interpolate::Interpolator;
 use crate::core::mutator::timestamp::TimeStamp;
 use crate::core::render::pipeline_layouts::TrigLineConstants;
@@ -17,6 +18,7 @@ const DEFAULT_PHASE: f32 = 0.;
 const DEFAULT_ORIENTATION: f32 = 0.;
 const DEFAULT_START_POINT: Point = [0., 0.];
 const DEFAULT_THICKNESS: f32 = 1.;
+const DEFAULT_COLOR: [f32; 4] = [1., 1., 1., 1.];
 const DEFAULT_RADIUS: f32 = 1.;
 const DEFAULT_RADIANS: f32 = 2. * PI;
 const DEFAULT_START_RADIANS: f32 = 0.;
@@ -24,6 +26,8 @@ const DEFAULT_START_RADIANS: f32 = 0.;
 pub struct NeedsStart;
 pub struct NeedsEnd;
 pub struct Bounded;
+
+// TODO: do resolution-based adjustment for thickness
 
 #[derive(Clone, Debug)]
 pub struct ArcLine {
@@ -53,7 +57,7 @@ impl ArcLine {
 }
 
 impl Entity for ArcLine {
-    fn render(&self, time: &TimeStamp, fps: u32) -> Vec<RenderedVertex> {
+    fn render(&self, time: &TimeStamp, fps: u32, viewport: [u32; 2]) -> Vec<RenderedVertex> {
         todo!()
     }
 
@@ -71,6 +75,7 @@ pub struct LinearLine {
     pub start: Interpolator<Point>,
     pub end: Interpolator<Point>,
     pub thickness: Interpolator<f32>,
+    pub color: Interpolator<[f32; 4]>
 }
 
 impl LinearLine {
@@ -78,34 +83,28 @@ impl LinearLine {
         start: Interpolator<Point>,
         end: Interpolator<Point>,
         thickness: Option<Interpolator<f32>>,
+        color: Option<Interpolator<[f32; 4]>>
     ) -> Self {
         Self {
             start,
             end,
             thickness: thickness.unwrap_or(DEFAULT_THICKNESS.into()),
+            color: color.unwrap_or(DEFAULT_COLOR.into())
         }
     }
 }
 
 impl Entity for LinearLine {
-    fn render(&self, time: &TimeStamp, fps: u32) -> Vec<RenderedVertex> {
-        todo!()
-    }
+    fn render(&self, time: &TimeStamp, fps: u32, viewport: [u32; 2]) -> Vec<RenderedVertex> {
+        let start = self.start.at(time, fps);
+        let end = self.end.at(time, fps);
+        let thickness = self.thickness.at(time, fps);
+        let color = self.color.at(time, fps);
 
-    fn get_push_constants(&self, time: &TimeStamp, fps: u32) -> Option<PushConstantData> {
-        todo!()
-    }
-
-    fn get_uniforms(&self, time: &TimeStamp, fps: u32) -> Option<UniformData> {
-        todo!()
-    }
-
-    fn get_vertex_shader(&self, defaults: &DefaultShaders) -> Arc<ShaderModule> {
-        todo!()
-    }
-
-    fn get_fragment_shader(&self, defaults: &DefaultShaders) -> Arc<ShaderModule> {
-        todo!()
+        create_stroke(&[start, end], thickness, viewport)
+            .into_iter()
+            .map(|position| RenderedVertex { position, color })
+            .collect()
     }
 }
 
@@ -384,7 +383,7 @@ impl Entity for TrigLine {
         PrimitiveTopology::TriangleStrip
     }
 
-    fn render(&self, _time: &TimeStamp, _fps: u32) -> Vec<RenderedVertex> {
+    fn render(&self, _time: &TimeStamp, _fps: u32, _viewport: [u32; 2]) -> Vec<RenderedVertex> {
         // Not used for GPU computation
         vec![]
     }

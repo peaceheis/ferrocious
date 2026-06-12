@@ -46,12 +46,12 @@ pub trait Entity {
 
     /// Renders the entity at the given time, returning vertices
     /// This is a pure function - same time always produces same output
-    fn render(&self, time: &TimeStamp, fps: u32) -> Vec<RenderedVertex>;
+    fn render(&self, time: &TimeStamp, fps: u32, viewport: [u32; 2]) -> Vec<RenderedVertex>;
 
-    fn get_push_constants(&self, time: &TimeStamp, fps: u32) -> Option<PushConstantData> {
+    fn get_push_constants(&self, time: &TimeStamp, fps: u32, viewport: [u32; 2]) -> Option<PushConstantData> {
         None
     }
-    fn get_uniforms(&self, time: &TimeStamp, fps: u32) -> Option<UniformData> {
+    fn get_uniforms(&self, time: &TimeStamp, fps: u32, viewport: [u32; 2]) -> Option<UniformData> {
         None
     }
 
@@ -143,7 +143,7 @@ impl Entity for PlainEntity {
         self.active_ranges.clone()
     }
 
-    fn render(&self, _time: &TimeStamp, _fps: u32) -> Vec<RenderedVertex> {
+    fn render(&self, _time: &TimeStamp, _fps: u32, _viewport: [u32; 2]) -> Vec<RenderedVertex> {
         // PlainEntity just returns static vertices (doesn't change over time)
         self.vertices.clone()
     }

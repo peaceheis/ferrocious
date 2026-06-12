@@ -133,7 +133,7 @@ pub trait Canvas {
                         .unwrap();
                 } else {
                     // CPU genates vertices (existing path)
-                    let vertices = entity.render(&current_frame, FPS);
+                    let vertices = entity.render(&current_frame, FPS, [WIDTH, HEIGHT]);
                     let num_vertices = vertices.len();
                     builder
                         .bind_vertex_buffers(0, render_context.build_vertex_buffer(vertices))

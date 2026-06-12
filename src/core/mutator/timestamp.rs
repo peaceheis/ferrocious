@@ -4,7 +4,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use vulkano::buffer::BufferContents;
 
-#[derive(PartialEq, Eq, Debug, Default, Copy, Clone, BufferContents)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Default, Copy, Clone, BufferContents)]
 #[repr(C)]
 pub struct TimeStamp {
     pub minute: u32,
@@ -62,42 +62,6 @@ impl TimeStamp {
             None => true, // No range means always visible
             Some(intervals) => self.in_range(intervals),
         }
-    }
-}
-
-impl PartialOrd for TimeStamp {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        return {
-            if self < other {
-                Some(Less)
-            } else if self == other {
-                Some(Equal)
-            } else {
-                Some(Greater)
-            }
-        };
-    }
-
-    fn lt(&self, other: &Self) -> bool {
-        other.minute > self.minute
-            || (other.minute == self.minute
-                && (other.second > self.second
-                    || (other.second == self.second && other.frame > self.frame)))
-    }
-
-    fn le(&self, other: &Self) -> bool {
-        self < other || self == other
-    }
-
-    fn gt(&self, other: &Self) -> bool {
-        other.minute < self.minute
-            || (other.minute == self.minute
-                && (other.second < self.second
-                    || (other.second == self.second && other.frame < self.frame)))
-    }
-
-    fn ge(&self, other: &Self) -> bool {
-        self > other || self == other
     }
 }
 
